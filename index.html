@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Thays' Adventure - Final Version</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Great+Vibes&display=swap" rel="stylesheet">
+    <style>
+        :root { --p-soft: #ffb6c1; --p-deep: #ff69b4; --white: #fff; }
+        body, html { margin: 0; padding: 0; overflow: hidden; font-family: 'Press Start 2P', cursive; background-color: var(--p-soft); }
+
+        /* CURSOR PATINHA */
+        #game-screen {
+            width: 100vw; height: 100vh;
+            background: url('assets/cenario.png') no-repeat center;
+            background-size: cover; image-rendering: pixelated;
+            position: relative;
+            cursor: url('assets/cursor_aberto.png'), auto;
+            transition: filter 0.5s ease;
+        }
+
+        .grabbing-cursor { cursor: url('assets/cursor_fechado.png'), grabbing !important; }
+        button, .sprite { cursor: url('assets/cursor_aberto.png'), pointer; }
+        
+        /* EFEITO DE CÂMERA */
+        .camera-focus { filter: blur(4px) brightness(0.7); }
+
+        /* HUD RPG */
+        #hud { position: fixed; top: 20px; left: 20px; z-index: 1000; display: none; }
+        .bar-wrap { width: 250px; height: 20px; background: #444; border: 3px solid #fff; margin-bottom: 15px; position: relative; }
+        #hp-fill { background: #e21443; width: 100%; height: 100%; animation: pulse 2s infinite; }
+        #mana-fill { background: #00bfff; width: 85%; height: 100%; }
+        .bar-label { position: absolute; font-size: 7px; color: #fff; top: -14px; left: 0; }
+
+        /* Guia Inferior */
+        #action-guide { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(255, 255, 255, 0.8); border: 3px solid var(--p-deep); padding: 10px 20px; font-size: 10px; color: var(--p-deep); z-index: 1000; display: none; }
+
+        /* Sprites */
+        .sprite { position: absolute; image-rendering: pixelated; z-index: 10; transition: left 0.1s linear, top 0.1s linear, transform 0.2s linear; }
+        #player { width: 64px; }
+        #black-cat { width: 45px; transition: all 0.5s ease-out; }
+        .kitten { width: 25px; } /* Filhotes menores conforme pedido */
+
+        /* Balão de Fala */
+        #speech-bubble { position: absolute; background: #fff; border: 3px solid #000; padding: 10px; font-size: 8px; z-index: 100; display: none; max-width: 180px; line-height: 1.4; }
+
+        /* Modais */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 2000; align-items: center; justify-content: center; flex-direction: column; }
+        .scroll-container { position: relative; width: 400px; height: 400px; display: flex; align-items: center; justify-content: center; }
+        .scroll-img { width: 50px; animation: growScroll 2.5s forwards; }
+        @keyframes growScroll { to { width: 400px; transform: rotate(720deg); } }
+        
+        /* Texto do Pergaminho */
+        .scroll-text { position: absolute; width: 250px; opacity: 0; font-family: 'Great Vibes', cursive; font-size: 24px; color: #4a3728; text-align: center; animation: fadeInText 1s forwards 2.5s; }
+        @keyframes fadeInText { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Botão CLOSE */
+        .close-btn { position: absolute; bottom: 30px; right: 30px; padding: 12px 24px; font-family: inherit; font-size: 10px; cursor: pointer; background: var(--p-deep); color: #fff; border: 3px solid #fff; z-index: 3000; display: none; }
+
+        /* Despedida Final */
+        #exit-screen { display: none; position: fixed; inset: 0; z-index: 4000; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); }
+        .farewell-text { font-family: 'Great Vibes', cursive; font-size: 45px; color: var(--p-deep); background: rgba(255, 255, 255, 0.9); padding: 30px; border-radius: 15px; border: 4px solid var(--p-deep); }
+
+        /* Tela de Start */
+        #start-overlay { position: fixed; inset: 0; background: var(--p-soft); z-index: 5000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #start-btn { padding: 20px 40px; font-family: inherit; font-size: 16px; cursor: pointer; border: 4px solid var(--p-deep); background: #fff; color: var(--p-deep); transition: 0.3s; }
+        #start-btn:hover { transform: scale(1.1); background: var(--p-deep); color: #fff; }
+    </style>
+</head>
+<body onmousedown="grabCursor()" onmouseup="releaseCursor()">
+
+<div id="start-overlay">
+    <button id="start-btn" onclick="startGame()">START GAME</button>
+    <p style="margin-top:20px; font-size:8px;">[ Use WASD to Move ]</p>
+</div>
+
+<div id="game-screen">
+    <div id="hud">
+        <div class="bar-wrap"><div class="bar-label">HP: Ice cream/Sweets</div><div id="hp-fill"></div></div>
+        <div class="bar-wrap"><div class="bar-label">Mana: Creativity/Curiosity</div><div id="mana-fill"></div></div>
+    </div>
+
+    <div id="action-guide">Press [E] to interact with the world</div>
+
+    <img src="assets/personagem.png" id="player" class="sprite" style="left: 400px; top: 350px;">
+    <img src="assets/pocao.png" id="potion" class="sprite" style="left: 150px; top: 150px;">
+    <img src="assets/gato.png" id="black-cat" class="sprite" style="left: 480px; top: 370px;">
+    <img src="assets/gatinha.png" class="sprite kitten" style="left: 120px; top: 420px;">
+    <img src="assets/gatinho.png" class="sprite kitten" style="left: 720px; top: 160px;">
+
+    <div id="speech-bubble">Welcome, traveler... Find the magic potion to unlock my profile</div>
+</div>
+
+<div id="inventory-overlay" class="modal-overlay">
+    <div class="scroll-container">
+        <img src="assets/pergaminho.png" class="scroll-img">
+        <div class="scroll-text">
+            Name: Thays<br>
+            Class: ADS Student<br>
+            Level: 20<br><br>
+            Skills:<br>
+            - Database.query()<br>
+            - CSS.style()<br>
+            - French.speak()
+        </div>
+    </div>
+    <button id="close-scroll-btn" class="close-btn" onclick="sequenceExit()">[ CLOSE ]</button>
+</div>
+
+<div id="exit-screen">
+    <div class="farewell-text">Thank you for the visit, see you soon!</div>
+</div>
+
+<script>
+    let px = 400, py = 350;
+    let missionActive = false;
+
+    function grabCursor() { document.body.classList.add('grabbing-cursor'); }
+    function releaseCursor() { document.body.classList.remove('grabbing-cursor'); }
+
+    function startGame() {
+        document.getElementById('start-overlay').style.display = 'none';
+        document.getElementById('hud').style.display = 'block';
+        document.getElementById('action-guide').style.display = 'block';
+    }
+
+    window.addEventListener('keydown', e => {
+        let k = e.key.toLowerCase();
+        if(k === 'w' && py > 100) py -= 8;
+        if(k === 's' && py < window.innerHeight-100) py += 8;
+        if(k === 'a' && px > 50) { px -= 8; document.getElementById('player').style.transform = 'scaleX(-1)'; }
+        if(k === 'd' && px < window.innerWidth-100) { px += 8; document.getElementById('player').style.transform = 'scaleX(1)'; }
+        
+        if(k === 'e') attemptInteract();
+
+        let p = document.getElementById('player');
+        p.style.left = px+'px'; p.style.top = py+'px';
+        
+        setTimeout(() => {
+            document.getElementById('black-cat').style.left = (px+75)+'px';
+            document.getElementById('black-cat').style.top = (py+25)+'px';
+        }, 200);
+    });
+
+    function attemptInteract() {
+        const bubble = document.getElementById('speech-bubble');
+        const p = document.getElementById('player');
+        
+        if(!missionActive) {
+            bubble.style.display = 'block';
+            bubble.style.left = (px)+'px'; bubble.style.top = (py-80)+'px';
+            p.style.transform = 'scaleX(1.1)'; // Thays de frente
+            missionActive = true;
+            document.getElementById('game-screen').classList.add('camera-focus');
+            
+            setTimeout(() => { 
+                bubble.style.display = 'none'; 
+                p.style.transform = 'scaleX(1)'; 
+                document.getElementById('game-screen').classList.remove('camera-focus');
+            }, 5000);
+        } else {
+            let dist = Math.hypot(px - 150, py - 150);
+            if(dist < 90) openScroll();
+        }
+    }
+
+    function openScroll() {
+        document.getElementById('game-screen').classList.add('camera-focus');
+        document.getElementById('inventory-overlay').style.display = 'flex';
+        // Botão CLOSE aparece no canto após a animação de giro
+        setTimeout(() => { document.getElementById('close-scroll-btn').style.display = 'block'; }, 2500);
+    }
+
+    function sequenceExit() {
+        document.getElementById('inventory-overlay').style.display = 'none';
+        document.getElementById('game-screen').classList.add('camera-focus'); // Mantém o fundo desfocado para a mensagem
+        document.getElementById('exit-screen').style.display = 'flex';
+        setTimeout(() => { window.close(); }, 10000); // 10 segundos antes de fechar
+    }
+</script>
+</body>
+</html>
